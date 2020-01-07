@@ -2,11 +2,11 @@
   <div>
     <div class="flex justify-center">
       <div class="flex font-mono text-2xl flex-col">
-        <div v-for="row in grid" class="flex">
+        <div class="flex" v-for="row in grid">
           <span
-            v-for="({letter, belongsToSolution}) in row"
             :class="{'bg-green-500': showSolution && belongsToSolution}"
             class="uppercase border font-bold px-6 py-2"
+            v-for="({letter, belongsToSolution}) in row"
           >
             {{ letter }}
           </span>
@@ -14,7 +14,7 @@
       </div>
       <div class="flex items-center ml-16">
         <ul>
-          <li v-for="word in words" class="text-2xl mt-4 uppercase">
+          <li class="text-2xl mt-4 uppercase" v-for="word in words">
             {{ word }}
           </li>
         </ul>
@@ -90,7 +90,10 @@ const createEmptyGrid = size => Array.from(
   { length: size },
   () => Array.from({ length: size }, () => ({ letter: '-' }))
 )
-const fillGrid = grid => grid.map(row => row.map(cell => cell.belongsToSolution ? cell : { ...cell, letter: getRandomLetter() }))
+const fillGrid = grid => grid.map(row => row.map(cell => cell.belongsToSolution ? cell : {
+  ...cell,
+  letter: getRandomLetter()
+}))
 
 export default {
   props: {
@@ -100,17 +103,17 @@ export default {
     },
     words: {
       type: Array,
-      default: () => ['Adventskalender', 'Weihnachten', 'Kerze', 'Tannenbaum', 'Geschenk', 'Rute', 'Plätzchen', 'Familie', 'Schnee', 'Gans']
+      default: () => ['Adventskalender', 'Adventskalender', 'Adventskalender', 'Adventskalender', 'Kerze', 'Tannenbaum', 'Geschenk', 'Rute', 'Plätzchen', 'Familie', 'Schnee', 'Gans']
     }
   },
   setup (props) {
     const grid = ref(createEmptyGrid(props.gridSize))
 
-    // eslint-disable-next-line no-unused-vars
-    const insert = (word, shouldInsertVertically = null) => {
+    function insert (word, shouldInsertVertically = null, usedTries = 0) {
       if (word.length > props.gridSize) {
         return
       }
+
       const randomBeginning = randomIntInBoundaries(0, props.gridSize - word.length)
       const startIndex = randomIntInBoundaries(0, props.gridSize - word.length)
       const letters = Array.from(word)
@@ -123,26 +126,47 @@ export default {
       const isBlocked = letters.some(willInsertVertically ? isBlockedVertically : isBlockedHorizontally)
 
       if (isBlocked) {
-        return insert(word, !shouldInsertVertically)
+        const triesNeededToChangeDirection = props.gridSize * 4
+        const triesNeededToRerollGrid = triesNeededToChangeDirection * 2
+        const shouldRerollGrid = usedTries >= triesNeededToRerollGrid
+
+        const changeInsertionDirection = usedTries === triesNeededToChangeDirection
+        const direction = changeInsertionDirection ? !shouldInsertVertically : shouldInsertVertically
+
+        if (shouldRerollGrid) {
+          reroll()
+        }
+
+        return insert(word, direction, usedTries + 1)
       }
 
-      const insertVertically = (letter, offset) => { grid.value[startIndex][randomBeginning + offset] = { letter, belongsToSolution: true } }
-      const insertHorizontally = (letter, offset) => { grid.value[startIndex + offset][randomBeginning] = { letter, belongsToSolution: true } }
+      const insertVertically = (letter, offset) => {
+        grid.value[startIndex][randomBeginning + offset] = {
+          letter,
+          belongsToSolution: true
+        }
+      }
+      const insertHorizontally = (letter, offset) => {
+        grid.value[startIndex + offset][randomBeginning] = {
+          letter,
+          belongsToSolution: true
+        }
+      }
 
       letters.forEach(willInsertVertically ? insertVertically : insertHorizontally)
     }
 
-    const roll = () => {
+    function roll () {
       props.words.forEach(w => insert(w))
       grid.value = fillGrid(grid.value)
     }
 
-    roll()
-
-    const reroll = () => {
+    function reroll () {
       grid.value = createEmptyGrid(props.gridSize)
       roll()
     }
+
+    roll()
 
     const showSolution = ref(false)
 
