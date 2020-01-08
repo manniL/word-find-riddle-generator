@@ -2,6 +2,15 @@
 
 > My mathematical Nuxt.js project
 
+Small program to create a "word find grid" with pre-defined words randomly placed and the empty spaces filled with random
+letters based on a letter frequency.
+
+**Attention**: Will likely fail often and has a few caveats. :P
+
+## Examples
+
+https://twitter.com/TheAlexLichter/status/1214856774085332992
+
 ## Build Setup
 
 ``` bash
