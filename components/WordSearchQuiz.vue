@@ -2,11 +2,11 @@
   <div>
     <div class="flex justify-center">
       <div class="flex font-mono text-2xl flex-col">
-        <div class="flex" v-for="row in grid">
+        <div v-for="row in grid" class="flex">
           <span
             :class="{'bg-green-500': showSolution && belongsToSolution}"
-            class="uppercase border font-bold px-6 py-2"
             v-for="({letter, belongsToSolution}) in row"
+            class="uppercase border font-bold px-6 py-2"
           >
             {{ letter }}
           </span>
@@ -14,7 +14,7 @@
       </div>
       <div class="flex items-center ml-16">
         <ul>
-          <li class="text-2xl mt-4 uppercase" v-for="word in words">
+          <li v-for="word in words" class="text-2xl mt-4 uppercase">
             {{ word }}
           </li>
         </ul>
@@ -31,38 +31,8 @@
 
 <script>
 import { ref } from '@vue/composition-api'
+import { englishLetterFrequency } from '@/assets/data'
 
-const lettersAndFrequency = {
-  'a': 6.516,
-  'b': 1.886,
-  'c': 2.732,
-  'd': 5.076,
-  'e': 16.396,
-  'f': 1.656,
-  'g': 3.009,
-  'h': 4.577,
-  'i': 6.55,
-  'j': 0.268,
-  'k': 1.417,
-  'l': 3.437,
-  'm': 2.534,
-  'n': 9.776,
-  'o': 2.594,
-  'p': 0.67,
-  'q': 0.018,
-  'r': 7.003,
-  's': 7.27,
-  't': 6.154,
-  'u': 4.166,
-  'v': 0.846,
-  'w': 1.921,
-  'x': 0.034,
-  'y': 0.039,
-  'z': 1.134,
-  'ä': 0.578,
-  'ö': 0.443,
-  'ü': 0.995
-}
 const randomInBoundaries = (min, max) => Math.random() * (max - min) + min
 const randomIntInBoundaries = (...args) => Math.round(randomInBoundaries(...args))
 
@@ -84,17 +54,6 @@ const getRandomItem = weightedObject => () => {
   }
 }
 
-const getRandomLetter = getRandomItem(lettersAndFrequency)
-
-const createEmptyGrid = size => Array.from(
-  { length: size },
-  () => Array.from({ length: size }, () => ({ letter: '-' }))
-)
-const fillGrid = grid => grid.map(row => row.map(cell => cell.belongsToSolution ? cell : {
-  ...cell,
-  letter: getRandomLetter()
-}))
-
 export default {
   props: {
     gridSize: {
@@ -103,10 +62,25 @@ export default {
     },
     words: {
       type: Array,
-      default: () => ['Adventskalender', 'Adventskalender', 'Adventskalender', 'Adventskalender', 'Kerze', 'Tannenbaum', 'Geschenk', 'Rute', 'Plätzchen', 'Familie', 'Schnee', 'Gans']
+      required: true
+    },
+    frequency: {
+      type: Object,
+      default: () => englishLetterFrequency
     }
   },
   setup (props) {
+    const getRandomLetter = getRandomItem(props.frequency)
+
+    const createEmptyGrid = size => Array.from(
+      { length: size },
+      () => Array.from({ length: size }, () => ({ letter: '-' }))
+    )
+    const fillGrid = grid => grid.map(row => row.map(cell => cell.belongsToSolution ? cell : {
+      ...cell,
+      letter: getRandomLetter()
+    }))
+
     const grid = ref(createEmptyGrid(props.gridSize))
 
     function insert (word, shouldInsertVertically = null, usedTries = 0) {
@@ -118,7 +92,7 @@ export default {
       const startIndex = randomIntInBoundaries(0, props.gridSize - word.length)
       const letters = Array.from(word)
 
-      const willInsertVertically = shouldInsertVertically === null ? (Math.random() > 0.5) : shouldInsertVertically
+      const willInsertVertically = Math.random() > 0.5
 
       const isBlockedVertically = (letter, offset) => Boolean(grid.value[startIndex][randomBeginning + offset].belongsToSolution)
       const isBlockedHorizontally = (letter, offset) => Boolean(grid.value[startIndex + offset][randomBeginning].belongsToSolution)
@@ -127,15 +101,9 @@ export default {
 
       if (isBlocked) {
         const triesNeededToChangeDirection = props.gridSize * 4
-        const triesNeededToRerollGrid = triesNeededToChangeDirection * 2
-        const shouldRerollGrid = usedTries >= triesNeededToRerollGrid
 
         const changeInsertionDirection = usedTries === triesNeededToChangeDirection
         const direction = changeInsertionDirection ? !shouldInsertVertically : shouldInsertVertically
-
-        if (shouldRerollGrid) {
-          reroll()
-        }
 
         return insert(word, direction, usedTries + 1)
       }
@@ -154,11 +122,20 @@ export default {
       }
 
       letters.forEach(willInsertVertically ? insertVertically : insertHorizontally)
+      return true
     }
 
     function roll () {
-      props.words.forEach(w => insert(w))
-      grid.value = fillGrid(grid.value)
+      const sortedWords = props.words.slice().sort((a, b) => b.length - a.length)
+      while (true) {
+        const hasPlacedAllWords = sortedWords.every(w => insert(w))
+        if (!hasPlacedAllWords) {
+          grid.value = createEmptyGrid(props.gridSize)
+          continue
+        }
+        grid.value = fillGrid(grid.value)
+        break
+      }
     }
 
     function reroll () {
